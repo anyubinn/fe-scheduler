@@ -58,8 +58,10 @@
             headers: { Authorization: `Bearer ${token}` }
             });
 
-            if (response.data && response.data.id) {
-            this.userId = response.data.id.toString();
+            const userData = response.data.data;
+
+            if (userData && userData.id) {
+            this.userId = userData.id.toString();
             this.status = `사용자 ID ${this.userId} 확인. 지도/웹소켓 준비 중...`;
             return true;
             } else {
