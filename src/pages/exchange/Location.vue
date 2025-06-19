@@ -75,7 +75,7 @@
             }
             return false;
         }
-    },
+      },
   
       // 웹소켓 연결 및 구독 로직
       connectWebSocket() {
@@ -128,6 +128,10 @@
             // 다른 사용자의 위치 마커를 업데이트
             this.updateUserMarker(message.data.userId.toString(), message.data.latitude, message.data.longitude);
             break;
+          case 'REMOVE_ITEM':
+            // 아이템 교환 완료 처리
+            this.handleItemRemoval(message.data.userId.toString());
+            break;
           default:
             console.warn('알 수 없는 메시지 타입:', message.type);
         }
@@ -160,25 +164,18 @@
         const position = new window.kakao.maps.LatLng(latitude, longitude);
         const isMe = userId === this.userId;
 
-        /**
-         * TODO
-         * 이 사용자의 아이템 정보를 userItems 객체에서 가져옴
-         * 현재는 한 명의 사용자가 하나의 아이템을 등록할 수 있다는 제한사항이 없어서 배열로 가져옴
-         * 후에 한 명의 사용자가 하나의 아이템을 등록할 수 있다는 로직이 추가되면 변경될 예정
-         */
-        const items = this.userItems[userId] || [];
+        // userItems에서 해당 사용자의 아이템을 가져옴
+        const item = this.userItems[userId];
 
         // 마커 이미지를 결정하는 로직
         let imageSrc = '';
         let imageSize;
 
-        if (items.length > 0) {
-            // 아이템이 있으면, 첫 번째 아이템의 카테고리에 따라 아이콘을 결정
-            const firstItemCategory = items[0].category;
+        if (item) {
             imageSize = new window.kakao.maps.Size(35, 35);
-            if (firstItemCategory === 'TICKET') {
+            if (item.category === 'TICKET') {
                 imageSrc = '/ticket.png';
-            } else if (firstItemCategory === 'GOODS') {
+            } else if (item.category === 'GOODS') {
                 imageSrc = '/goods.avif';
             }
         } else {
@@ -212,27 +209,35 @@
 
         // userLocations는 항상 최신 위치로 업데이트
         this.userLocations[userId] = { latitude, longitude };
-    },
+      },
       
       drawItemMarker(item) {
         const itemOwnerId = item.user.userId.toString();
 
-        // userItems 객체에 해당 사용자의 아이템 정보를 저장
-        if (!this.userItems[itemOwnerId]) {
-            this.userItems[itemOwnerId] = [];
-        }
-        // 중복 추가 방지
-        if (!this.userItems[itemOwnerId].some(i => i.id === item.id)) {
-            this.userItems[itemOwnerId].push(item);
-        }
+        this.userItems[itemOwnerId] = item;
 
-        // 이 아이템 소유자의 위치 정보가 있는지 확인
         const ownerLocation = this.userLocations[itemOwnerId];
         if (ownerLocation) {
-            // 위치 정보가 있다면 updateUserMarker를 호출하여 마커를 다시 그리도록 요청
-            this.updateUserMarker(itemOwnerId, ownerLocation.latitude, ownerLocation.longitude);
+          // 위치 정보가 있다면 updateUserMarker를 호출하여 마커를 다시 그리도록 요청
+          this.updateUserMarker(itemOwnerId, ownerLocation.latitude, ownerLocation.longitude);
         }
-    },
+      },
+
+      handleItemRemoval(userId) {
+        // userItems에서 해당 사용자의 아이템 정보 삭제
+        if (this.userItems[userId]) {
+          delete this.userItems[userId];
+          console.log('아이템 제거: userId=${userId}');
+        }
+
+        // 해당 아이템 소유자의 최신 위치 정보가 있는지 확인
+        const ownerLocation = this.userLocations[userId];
+        if (ownerLocation) {
+          // updateUserMarker를 호출하여 마커를 다시 그리도록 요청
+          this.updateUserMarker(itemOwnerId, ownerLocation.latitude, ownerLocation.longitude);
+          this.status = `사용자(ID: ${userId})의 아이템이 지도에서 업데이트되었습니다.`;
+        }
+      },
   
       // 위치 전송 시작/중지
       startSendingLocation() {
